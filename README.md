@@ -36,8 +36,8 @@ User Input (Code / Doc / API Spec)
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-team/test-gen-rag.git
-cd test-gen-rag
+git clone [https://github.com/your-team/test-gen-rag.git](https://github.com/dhanyabhat16/Test_case_generator.git)
+cd Test_case_generator
 ```
 
 ### 2. Create virtual environment
