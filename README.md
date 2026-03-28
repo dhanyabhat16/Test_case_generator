@@ -18,7 +18,7 @@ User Input (Code / Doc / API Spec)
          ↓
   Chunking + Embedding (all-MiniLM-L6-v2)
          ↓
-  ChromaDB Vector Store
+  FAISS Vector Store
          ↓
   RAG Retriever (top-k similar chunks)
          ↓
