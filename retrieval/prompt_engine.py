@@ -66,8 +66,24 @@ def _build_code_prompt(
     docstring     = meta.get("docstring", "")
     return_type   = meta.get("return_type", "unknown")
     signature     = meta.get("signature", "")
+    class_name    = meta.get("class_name", None)  # None for module-level functions
 
     primary_code = primary_chunk.get("content", "")
+
+    # Build the correct import instruction based on whether this is a
+    # class method or a standalone function.
+    module_name = file_name.replace(".py", "").replace(".java", "")
+    if class_name:
+        import_instruction = (
+            f"Import using: `from {module_name} import {class_name}`\n"
+            f"   The function `{function_name}` is a method of class `{class_name}`.\n"
+            f"   Instantiate the class with its required arguments before calling the method."
+        )
+    else:
+        import_instruction = (
+            f"Import using: `from {module_name} import {function_name}`\n"
+            f"   The function `{function_name}` is a standalone module-level function."
+        )
 
     # Format similar functions as context
     similar_context = _format_similar_chunks(retrieved_chunks, mode="code")
@@ -96,7 +112,7 @@ Generate comprehensive PyTest unit tests for the function `{function_name}` abov
 
 **Requirements:**
 1. Write a complete, runnable Python test file
-2. Import the function correctly (assume it can be imported from its module)
+2. {import_instruction}
 3. Cover ALL of the following test categories — use comments to label each section:
    - **Happy path**: Normal inputs that should work correctly
    - **Edge cases**: Empty inputs, zero, None, boundary values, single items
@@ -204,7 +220,7 @@ def _build_api_prompt(
     api_title    = meta.get("api_title", "Unknown API")
     chunk_idx    = meta.get("chunk_index", "?")
 
-    # Parse structured fields back from JSON strings (Person 1 stores them flat)
+    # Parse structured fields back from JSON strings
     parameters   = _safe_parse(meta.get("parameters", "[]"))
     request_body = _safe_parse(meta.get("request_body", "{}"))
     responses    = _safe_parse(meta.get("responses", "[]"))
@@ -293,7 +309,6 @@ def _format_similar_chunks(
         source  = chunk.get("source", "unknown")
         content = chunk.get("content", "")
 
-        # Truncate long content so the prompt doesn't overflow the context window
         preview = content[:600] + ("..." if len(content) > 600 else "")
 
         lines.append(f"### [Context {rank}] (similarity: {score:.3f})")
@@ -356,7 +371,7 @@ def _format_request_body(body: Any) -> str:
 
 def _safe_parse(value: Any) -> Any:
     """
-    Parse a value that may be a JSON string (from Person 1's flat metadata).
+    Parse a value that may be a JSON string.
     Returns the original value if it's already a list/dict or parsing fails.
     """
     if isinstance(value, (list, dict)):
@@ -373,17 +388,17 @@ def _safe_parse(value: Any) -> Any:
 
 # ── CLI smoke test ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    # Quick sanity check with a fake code chunk
     fake_chunk = {
         "content": "def add(a: int, b: int) -> int:\n    return a + b",
         "metadata": {
-            "type": "code",
-            "function_name": "add",
-            "signature": "def add(a, b)",
-            "return_type": "int",
-            "docstring": "Return the sum of a and b.",
-            "language": "python",
-            "file_name": "math_utils.py",
+            "type"          : "code",
+            "function_name" : "add",
+            "signature"     : "def add(a, b)",
+            "return_type"   : "int",
+            "docstring"     : "Return the sum of a and b.",
+            "language"      : "python",
+            "file_name"     : "math_utils.py",
+            "class_name"    : None,
         },
     }
     prompt = build_prompt(fake_chunk, [])
