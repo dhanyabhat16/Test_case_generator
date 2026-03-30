@@ -12,7 +12,7 @@ Usage:
 import ast
 import re
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 # ─────────────────────────────────────────────
@@ -64,20 +64,38 @@ def _parse_python(file_path: str, file_name: str) -> List[Dict[str, Any]]:
     lines = source.splitlines()
     chunks = []
 
+    # Build a map of function node → parent class name (if any)
+    class_map = _build_class_map(tree)
+
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            # Skip private/dunder methods if nested too deep (keep top-level + class methods)
-            chunk = _extract_python_function(node, lines, file_name)
+            class_name = class_map.get(id(node), None)
+            chunk = _extract_python_function(node, lines, file_name, class_name)
             if chunk:
                 chunks.append(chunk)
 
     return chunks
 
 
+def _build_class_map(tree: ast.AST) -> Dict[int, str]:
+    """
+    Walk the AST and return a dict mapping function node id → class name
+    for every method that lives inside a class body.
+    """
+    class_map: Dict[int, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for item in ast.walk(node):
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    class_map[id(item)] = node.name
+    return class_map
+
+
 def _extract_python_function(
     node: ast.FunctionDef,
     lines: List[str],
-    file_name: str
+    file_name: str,
+    class_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Extract a single Python function into a chunk dict."""
     # Function signature
@@ -91,8 +109,8 @@ def _extract_python_function(
 
     # Full function body (raw source lines)
     start_line = node.lineno - 1        # ast is 1-indexed
-    end_line = node.end_lineno          # inclusive
-    body = "\n".join(lines[start_line:end_line])
+    end_line   = node.end_lineno        # inclusive
+    body       = "\n".join(lines[start_line:end_line])
 
     # Decorators
     decorators = [ast.unparse(d) for d in node.decorator_list]
@@ -105,16 +123,17 @@ def _extract_python_function(
     return {
         "content": content,
         "metadata": {
-            "type": "code",
-            "language": "python",
-            "function_name": node.name,
-            "signature": signature,
-            "docstring": docstring,
-            "return_type": return_type,
-            "decorators": decorators,
-            "start_line": node.lineno,
-            "end_line": node.end_lineno,
-            "file_name": file_name,
+            "type"          : "code",
+            "language"      : "python",
+            "function_name" : node.name,
+            "class_name"    : class_name,   # ← NEW: None for module-level functions
+            "signature"     : signature,
+            "docstring"     : docstring,
+            "return_type"   : return_type,
+            "decorators"    : decorators,
+            "start_line"    : node.lineno,
+            "end_line"      : node.end_lineno,
+            "file_name"     : file_name,
         }
     }
 
@@ -154,18 +173,18 @@ def _parse_java(file_path: str, file_name: str) -> List[Dict[str, Any]]:
 
     for match in _JAVA_METHOD_PATTERN.finditer(source):
         method_name = match.group("name")
-        params_raw = match.group("params").strip()
+        params_raw  = match.group("params").strip()
         return_type = match.group("return_type").strip()
-        modifiers = match.group("modifiers").strip()
-        javadoc = (match.group("javadoc") or "").strip()
+        modifiers   = match.group("modifiers").strip()
+        javadoc     = (match.group("javadoc") or "").strip()
 
         # Extract method body by counting braces from the opening {
         body_start = match.end() - 1  # position of opening {
-        body = _extract_java_body(source, body_start)
+        body       = _extract_java_body(source, body_start)
 
         # Compute line numbers
         start_line = source[:match.start()].count("\n") + 1
-        end_line = start_line + body.count("\n")
+        end_line   = start_line + body.count("\n")
 
         # Build signature
         signature = f"{modifiers} {return_type} {method_name}({params_raw})".strip()
@@ -178,17 +197,17 @@ def _parse_java(file_path: str, file_name: str) -> List[Dict[str, Any]]:
         chunks.append({
             "content": content,
             "metadata": {
-                "type": "code",
-                "language": "java",
-                "function_name": method_name,
-                "class_name": class_name,
-                "signature": signature,
-                "docstring": docstring,
-                "return_type": return_type,
-                "modifiers": modifiers,
-                "start_line": start_line,
-                "end_line": end_line,
-                "file_name": file_name,
+                "type"          : "code",
+                "language"      : "java",
+                "function_name" : method_name,
+                "class_name"    : class_name,
+                "signature"     : signature,
+                "docstring"     : docstring,
+                "return_type"   : return_type,
+                "modifiers"     : modifiers,
+                "start_line"    : start_line,
+                "end_line"      : end_line,
+                "file_name"     : file_name,
             }
         })
 
@@ -198,7 +217,7 @@ def _parse_java(file_path: str, file_name: str) -> List[Dict[str, Any]]:
 def _extract_java_body(source: str, opening_brace_pos: int) -> str:
     """Extract the full method body by counting balanced braces."""
     depth = 0
-    i = opening_brace_pos
+    i     = opening_brace_pos
     start = i
 
     while i < len(source):
@@ -218,7 +237,6 @@ def _clean_javadoc(javadoc: str) -> str:
     """Strip Javadoc comment markers to get plain text."""
     if not javadoc:
         return ""
-    # Remove /** */ and leading * on each line
     cleaned = re.sub(r"/\*\*|\*/", "", javadoc)
     cleaned = re.sub(r"^\s*\*", "", cleaned, flags=re.MULTILINE)
     return cleaned.strip()
@@ -236,7 +254,7 @@ if __name__ == "__main__":
         print("Usage: python code_parser.py <file_path>")
         sys.exit(1)
 
-    path = sys.argv[1]
+    path   = sys.argv[1]
     result = parse_code_file(path)
     print(f"✅ Parsed {len(result)} function(s) from {path}\n")
     for i, chunk in enumerate(result):
