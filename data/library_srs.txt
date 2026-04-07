@@ -1,0 +1,368 @@
+================================================================================
+SOFTWARE REQUIREMENTS SPECIFICATION (SRS)
+Library Management System — Version 2.1
+================================================================================
+
+Dataset Provenance:
+  Style   : IEEE 830-1998 / ISO/IEC/IEEE 29148:2018
+  Inspired by: PROMISE NFR Dataset (Cleland-Huang et al., 2007)
+              "Automated Classification of Non-Functional Requirements"
+              Requirements Engineering Journal, Springer.
+  Domain  : Public Library Information System (LIS)
+  Purpose : IEEE paper dataset — requirements retrieval & classification benchmark
+
+================================================================================
+1. INTRODUCTION
+================================================================================
+
+1.1 Purpose
+-----------
+This Software Requirements Specification (SRS) document describes the functional
+and non-functional requirements for the Library Management System (LMS). The LMS
+is a web-based information system designed to automate and streamline all core
+operations of a public library, including cataloguing, member management, lending,
+reservation, and fine processing. This document is intended for use by developers,
+testers, and project stakeholders.
+
+1.2 Scope
+---------
+The Library Management System, referred to as "LMS" or "the system" throughout
+this document, shall provide:
+  (a) A catalogue interface for searching and browsing library holdings.
+  (b) A member portal for account management, reservations, and loan history.
+  (c) An administrative dashboard for librarians to manage inventory and users.
+  (d) An automated notification service for due dates, holds, and fines.
+  (e) Integration with external ISBN databases for metadata enrichment.
+
+1.3 Definitions, Acronyms, and Abbreviations
+---------------------------------------------
+  LMS    — Library Management System
+  OPAC   — Online Public Access Catalogue
+  ISBN   — International Standard Book Number
+  MARC   — Machine-Readable Cataloguing (bibliographic standard)
+  FRBR   — Functional Requirements for Bibliographic Records
+  API    — Application Programming Interface
+  RBAC   — Role-Based Access Control
+  SLA    — Service Level Agreement
+  NFR    — Non-Functional Requirement
+  FR     — Functional Requirement
+
+1.4 References
+--------------
+  [1] IEEE Std 830-1998, "IEEE Recommended Practice for Software Requirements
+      Specifications," IEEE, 1998.
+  [2] Cleland-Huang, J. et al., "Automated Classification of Non-Functional
+      Requirements," Requirements Engineering, vol. 12, no. 2, 2007.
+  [3] ISO 2709:2008, "Information and Documentation — Format for Information
+      Exchange," ISO, 2008.
+  [4] MARC 21 Format for Bibliographic Data, Library of Congress, 2022.
+
+================================================================================
+2. OVERALL DESCRIPTION
+================================================================================
+
+2.1 Product Perspective
+-----------------------
+The LMS is a new, self-contained system replacing the existing manual card-index
+and spreadsheet-based workflows currently in use. It interfaces with:
+  - External ISBN lookup API (Open Library / Google Books API)
+  - Payment gateway for online fine settlement
+  - Email/SMS notification provider (SMTP + Twilio)
+  - Active Directory / LDAP for staff authentication
+
+2.2 Product Functions
+---------------------
+Major functions of the LMS include:
+  (a) Catalogue Management: Add, update, remove, and search bibliographic records.
+  (b) Member Management: Register members, manage profiles, track membership status.
+  (c) Loan Management: Issue loans, process returns, renew loans, track overdue items.
+  (d) Reservation System: Allow members to place holds on checked-out items.
+  (e) Fine Management: Calculate, track, and process overdue fines.
+  (f) Reporting: Generate usage statistics and inventory reports.
+  (g) Notifications: Send automated alerts for due dates, available holds, and fines.
+
+2.3 User Classes and Characteristics
+-------------------------------------
+  Guest User      : Unauthenticated visitor; read-only access to OPAC.
+  Library Member  : Authenticated patron; can search, reserve, and manage loans.
+  Librarian       : Staff user; full catalogue and loan management access.
+  Administrator   : System administrator; manages users, system config, and reports.
+
+2.4 Assumptions and Dependencies
+----------------------------------
+  - Members possess a valid email address at registration.
+  - The system assumes availability of an external ISBN API with ≥99.5% uptime.
+  - Library operates Monday–Saturday, 09:00–21:00 local time; the system must
+    be available 24/7 for online member access.
+
+================================================================================
+3. FUNCTIONAL REQUIREMENTS
+================================================================================
+
+3.1 User Authentication and Authorization
+------------------------------------------
+FR-AUTH-001: The system shall allow registered members to log in using a
+  username/email and password combination.
+
+FR-AUTH-002: The system shall support OAuth 2.0 login via Google and Microsoft
+  accounts for library members.
+
+FR-AUTH-003: The system shall implement Role-Based Access Control (RBAC) with the
+  following roles: Guest, Member, Librarian, and Administrator.
+
+FR-AUTH-004: The system shall lock a member account after five consecutive failed
+  login attempts and require email-based verification to unlock.
+
+FR-AUTH-005: The system shall enforce password complexity: minimum 8 characters,
+  at least one uppercase letter, one digit, and one special character.
+
+FR-AUTH-006: The system shall provide a "Forgot Password" workflow that sends a
+  time-limited (30-minute) reset link to the registered email address.
+
+FR-AUTH-007: All authenticated sessions shall expire after 30 minutes of
+  inactivity. The system shall warn the user 5 minutes before expiry.
+
+3.2 Catalogue Search and Browse
+---------------------------------
+FR-CAT-001: The system shall provide an OPAC interface accessible without login,
+  allowing any user to search the library catalogue.
+
+FR-CAT-002: The system shall support full-text search across title, author, ISBN,
+  publisher, subject heading, and keyword fields.
+
+FR-CAT-003: Search results shall be filterable by: availability status, format
+  (book, e-book, journal, DVD), language, publication year range, and subject.
+
+FR-CAT-004: The system shall display each catalogue record with: title, author(s),
+  ISBN, publisher, publication year, edition, summary, cover image, availability
+  status, and current loan count.
+
+FR-CAT-005: The system shall provide faceted navigation on search result pages,
+  updating facet counts dynamically without full page reload.
+
+FR-CAT-006: The system shall support Boolean search operators (AND, OR, NOT) and
+  wildcard characters (* and ?) in search queries.
+
+FR-CAT-007: The system shall suggest spelling corrections for search queries that
+  return fewer than three results.
+
+FR-CAT-008: The system shall record search queries and result click-through events
+  for analytics purposes, anonymised in compliance with GDPR.
+
+3.3 Loan and Return Management
+--------------------------------
+FR-LOAN-001: Librarians shall be able to issue a loan by scanning a member's
+  library card barcode and the item's barcode.
+
+FR-LOAN-002: The system shall enforce per-member loan limits: Members may hold a
+  maximum of 10 physical items and 5 e-books simultaneously.
+
+FR-LOAN-003: Standard loan periods shall be: books — 21 days; DVDs — 7 days;
+  journals — 14 days; e-books — 14 days.
+
+FR-LOAN-004: Members shall be able to renew a loan up to two times online, provided
+  no other member has placed a hold on the item.
+
+FR-LOAN-005: The system shall prevent loan issuance to members with unpaid fines
+  exceeding £5.00 or accounts in suspended status.
+
+FR-LOAN-006: The system shall automatically mark items as overdue at midnight on
+  the day after the due date and begin fine accrual.
+
+FR-LOAN-007: Upon return, the system shall calculate the total fine due, mark the
+  item as available, and update the member's loan history.
+
+FR-LOAN-008: The system shall generate a printable or emailable loan receipt at
+  checkout and return, detailing item, dates, and any fines applied.
+
+3.4 Reservation and Hold System
+---------------------------------
+FR-RES-001: Authenticated members shall be able to place a hold on any item
+  currently on loan, joining a FIFO queue for that item.
+
+FR-RES-002: The system shall notify the next member in the hold queue by email and
+  SMS within 15 minutes of an item being returned.
+
+FR-RES-003: A notified member shall have 48 hours to collect the reserved item;
+  failure to collect shall forfeit the hold and advance the queue.
+
+FR-RES-004: Members shall be able to view, modify, and cancel their active holds
+  through the member portal.
+
+FR-RES-005: The system shall display the estimated wait time for a hold based on
+  average loan duration and queue position.
+
+3.5 Fine Management
+---------------------
+FR-FINE-001: The system shall calculate overdue fines at the following rates:
+  books — £0.20/day; DVDs — £0.50/day; journals — £0.10/day.
+
+FR-FINE-002: The maximum fine per item shall be capped at the replacement cost of
+  the item as recorded in the catalogue record.
+
+FR-FINE-003: Members shall be able to pay outstanding fines online via debit/credit
+  card through the integrated payment gateway.
+
+FR-FINE-004: Librarians shall be able to waive or adjust fines with a mandatory
+  justification note recorded in the audit log.
+
+FR-FINE-005: The system shall generate a monthly fine revenue report for the
+  Administrator, broken down by item type and member category.
+
+================================================================================
+4. NON-FUNCTIONAL REQUIREMENTS
+================================================================================
+
+4.1 Performance Requirements
+------------------------------
+NFR-PERF-001: The OPAC search interface shall return results within 2 seconds for
+  95% of queries under normal load (up to 500 concurrent users).
+
+NFR-PERF-002: The system shall support a minimum of 1,000 concurrent authenticated
+  sessions without degradation of response time beyond 20%.
+
+NFR-PERF-003: Catalogue indexing of a new or updated record shall be reflected in
+  search results within 60 seconds of the update being committed.
+
+NFR-PERF-004: Batch import of up to 10,000 MARC records shall complete within
+  30 minutes.
+
+NFR-PERF-005: Fine calculation and account status updates shall be processed within
+  5 minutes of the scheduled nightly batch run.
+
+4.2 Security Requirements
+---------------------------
+NFR-SEC-001: All data in transit shall be encrypted using TLS 1.3 or higher.
+
+NFR-SEC-002: All passwords shall be stored using bcrypt with a minimum cost factor
+  of 12; plaintext passwords shall never be logged or stored.
+
+NFR-SEC-003: The system shall implement OWASP Top 10 mitigations, including
+  protection against SQL injection, XSS, and CSRF.
+
+NFR-SEC-004: Access to the administrative dashboard shall require multi-factor
+  authentication (MFA) for all staff accounts.
+
+NFR-SEC-005: The system shall maintain an immutable audit log of all create, update,
+  and delete operations on catalogue records, loan events, and fine adjustments,
+  retaining logs for a minimum of 5 years.
+
+NFR-SEC-006: Personal data processing shall comply with GDPR (Regulation EU 2016/679)
+  and the UK Data Protection Act 2018. Data retention periods shall not exceed 3
+  years after membership expiry.
+
+4.3 Reliability and Availability
+----------------------------------
+NFR-REL-001: The system shall achieve 99.9% uptime (excluding scheduled maintenance
+  windows) measured monthly, equating to less than 44 minutes of unplanned downtime
+  per month.
+
+NFR-REL-002: Scheduled maintenance shall be performed between 02:00 and 04:00 local
+  time on Sundays and shall not exceed 2 hours per month.
+
+NFR-REL-003: The system shall perform automated database backups every 6 hours, with
+  backups retained for 30 days. Recovery Point Objective (RPO) shall not exceed
+  6 hours.
+
+NFR-REL-004: Recovery Time Objective (RTO) following a full system failure shall not
+  exceed 4 hours.
+
+NFR-REL-005: The system shall degrade gracefully in the event of external API
+  unavailability (e.g., ISBN lookup service) by caching the last known data and
+  serving cached responses, with a user-visible warning message.
+
+4.4 Usability Requirements
+----------------------------
+NFR-USE-001: The OPAC interface shall conform to WCAG 2.1 Level AA accessibility
+  guidelines.
+
+NFR-USE-002: The system shall support the following languages at launch: English,
+  Welsh. Additional languages shall be addable without code changes, via locale files.
+
+NFR-USE-003: A new librarian with no prior LMS experience shall be able to complete
+  a loan issuance and return workflow within 5 minutes after a 1-hour onboarding
+  session, as validated by usability testing with at least 5 participants.
+
+NFR-USE-004: The member portal shall be fully functional on the following browsers:
+  Chrome ≥110, Firefox ≥110, Safari ≥16, Edge ≥110, and on mobile devices with
+  screen widths ≥ 320px.
+
+4.5 Maintainability and Scalability
+-------------------------------------
+NFR-MAIN-001: The system shall be deployable on a container orchestration platform
+  (Kubernetes) to allow horizontal scaling of individual service components.
+
+NFR-MAIN-002: The codebase shall maintain a test coverage of at least 80% for all
+  business logic modules, verified by the CI/CD pipeline on every merge request.
+
+NFR-MAIN-003: All public-facing APIs shall be versioned (e.g., /api/v1/, /api/v2/)
+  to allow backward-compatible evolution.
+
+NFR-MAIN-004: System configuration (timeouts, fine rates, loan periods, limits)
+  shall be stored in a centralised configuration service, modifiable by the
+  Administrator without requiring a deployment.
+
+================================================================================
+5. EXTERNAL INTERFACE REQUIREMENTS
+================================================================================
+
+5.1 User Interfaces
+--------------------
+UI-001: The OPAC shall present a responsive web interface with a prominent search
+  bar, faceted sidebar, and a result grid/list toggle.
+
+UI-002: The administrative dashboard shall present key metrics (loans today, overdue
+  items, fines outstanding) on a summary card layout upon login.
+
+5.2 Hardware Interfaces
+------------------------
+HW-001: The system shall support USB barcode scanner input at the circulation desk
+  for member card and item barcode scanning.
+
+5.3 Software Interfaces
+------------------------
+SW-001: The system shall expose a REST API (OpenAPI 3.0 specification) for all
+  catalogue, loan, and member operations to allow future integration with third-party
+  applications and mobile clients.
+
+SW-002: The system shall consume the Open Library API (https://openlibrary.org/api)
+  and Google Books API for ISBN metadata enrichment, with fallback between providers.
+
+SW-003: The system shall integrate with SendGrid for transactional email delivery
+  and Twilio for SMS notifications.
+
+5.4 Communication Interfaces
+------------------------------
+COM-001: The system shall use HTTPS exclusively for all external communication.
+
+COM-002: Internal service-to-service communication shall use gRPC over mTLS.
+
+================================================================================
+6. OTHER REQUIREMENTS
+================================================================================
+
+6.1 Legal and Compliance
+--------------------------
+COMP-001: The system shall generate an annual data processing report suitable for
+  submission to the Information Commissioner's Office (ICO).
+
+COMP-002: All third-party libraries and components used shall be licensed under an
+  OSI-approved open-source licence or a commercially licensed product for which the
+  library holds a valid licence.
+
+6.2 Internationalisation
+--------------------------
+I18N-001: All date and time displays shall respect the user's locale setting.
+  The system shall store all timestamps in UTC internally.
+
+I18N-002: Currency display shall default to GBP (£) but shall be configurable
+  per deployment instance via the Administrator configuration panel.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+Revision History:
+  v1.0  2023-01-10  Initial draft
+  v2.0  2023-06-15  Added NFRs, external interfaces, GDPR compliance section
+  v2.1  2024-02-20  Updated loan limits, fine rates, accessibility requirements
+================================================================================

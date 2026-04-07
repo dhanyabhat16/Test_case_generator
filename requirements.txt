@@ -20,5 +20,17 @@ streamlit==1.44.1
 pytest==8.3.5
 pytest-cov==6.1.0
 
+
+# Evaluation — LLM-based (DeepEval)
+# Install separately if you want full LLM-judge evaluation:
+#   pip install deepeval
+# Without it, the heuristic fallback runs automatically.
+deepeval>=0.21.0
+
+# Sparse Retrieval (BM25 is implemented from scratch — no extra dep needed)
+# For rank_bm25 as an alternative: pip install rank-bm25
+
+
+
 # Utilities
 python-dotenv==1.1.0
