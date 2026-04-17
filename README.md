@@ -141,25 +141,22 @@ test-gen-rag/
 
 ---
 
-## Team
-
-| Person | Responsibility | Days |
-|---|---|---|
-| Person 1 | Ingestion & Parsing | 1–3 |
-| Person 2 | RAG & Generation | 2–5 |
-| Person 3 | Evaluation & UI | 4–7 |
-
----
 
 ## Results
 
-*(To be filled in by Person 3 after evaluation)*
+## Evaluation Results
 
-| Mode | Input Type | Parse Rate | Execution Rate | Line Coverage |
-|---|---|---|---|---|
-| No RAG | Code | - | - | - |
-| RAG | Code | - | - | - |
-| No RAG | Requirements | - | - | - |
-| RAG | Requirements | - | - | - |
-| No RAG | API Spec | - | - | - |
-| RAG | API Spec | - | - | - |
+| Input Type   | Files | PR (%) | EX (%) | CV (%)  |
+|--------------|-------|--------|--------|---------|
+| API          | 7     | 100    | 100    | N/A     |
+| Requirements | 4     | N/A    | N/A    | N/A     |
+| Code         | 15    | 100    | 100    | 73–91   |
+
+
+## Top-K Impact on Coverage
+
+| K | Range (%) | Avg (%) |
+|---|----------|--------|
+| 1 | 25–78    | 50.0   |
+| 3 | 47–73    | 62.7   |
+| 5 | 73–91    | 78.8   |
